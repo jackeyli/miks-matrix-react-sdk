@@ -25,7 +25,7 @@ import { Key } from "../../Keyboard";
 import { Writeable } from "../../@types/common";
 import { replaceableComponent } from "../../utils/replaceableComponent";
 import UIStore from "../../stores/UIStore";
-
+import SettingsStore from "../../settings/SettingsStore";
 // Shamelessly ripped off Modal.js.  There's probably a better way
 // of doing reusable widgets like dialog boxes & menus where we go and
 // pass in a custom control as the actual body.
@@ -33,15 +33,32 @@ import UIStore from "../../stores/UIStore";
 const ContextualMenuContainerId = "mx_ContextualMenu_Container";
 
 function getOrCreateContainer(): HTMLDivElement {
-    let container = document.getElementById(ContextualMenuContainerId) as HTMLDivElement;
-
-    if (!container) {
-        container = document.createElement("div");
-        container.id = ContextualMenuContainerId;
-        document.body.appendChild(container);
-    }
-
-    return container;
+   let embedded = SettingsStore.getValue("feature_miks_embedded");
+   if(!embedded) {
+      let container = document.getElementById(ContextualMenuContainerId) as HTMLDivElement;
+      if (!container) {
+         container = document.createElement("div");
+         container.id = ContextualMenuContainerId;
+         document.body.appendChild(container);
+      }
+      return container;
+   } else {
+      let container = document.getElementById('miks-matrix-content');
+       if (!container) {
+          // container = document.createElement("div");
+          // container.id = STATIC_DIALOG_CONTAINER_ID;
+          // document.body.appendChild(container);
+          return null
+       } else {
+          let modal = container.shadowRoot.getElementById(ContextualMenuContainerId) as HTMLDivElement
+          if(!modal) {
+             modal = document.createElement("div");
+             modal.id = ContextualMenuContainerId;
+             container.shadowRoot.appendChild(modal)
+          }
+          return modal;
+       }
+   }
 }
 
 export interface IPosition {
@@ -457,17 +474,23 @@ export const aboveLeftOf = (
     vPadding = 0,
 ): AboveLeftOf => {
     const menuOptions: IPosition & { chevronFace: ChevronFace } = { chevronFace };
-
-    const buttonRight = elementRect.right + window.pageXOffset;
-    const buttonBottom = elementRect.bottom + window.pageYOffset;
-    const buttonTop = elementRect.top + window.pageYOffset;
+    const embedded = SettingsStore.getValue('feature_miks_embedded')
+    const buttonRight = elementRect.right + (embedded ? 0:window.pageXOffset);
+    const buttonBottom = elementRect.bottom + (embedded ? 0:window.pageYOffset);
+    const buttonTop = elementRect.top + (embedded ? 0:window.pageYOffset);
     // Align the right edge of the menu to the right edge of the button
-    menuOptions.right = UIStore.instance.windowWidth - buttonRight;
+   //  menuOptions.right = UIStore.instance.windowWidth - buttonRight;
+    
+    menuOptions.right = embedded ? 20: (UIStore.instance.windowWidth - buttonRight);
     // Align the menu vertically on whichever side of the button has more space available.
-    if (buttonBottom < UIStore.instance.windowHeight / 2) {
-        menuOptions.top = buttonBottom + vPadding;
+    if(!embedded) {
+      if (buttonBottom < UIStore.instance.windowHeight / 2) {
+         menuOptions.top = buttonBottom + vPadding;
+      } else {
+         menuOptions.bottom = (UIStore.instance.windowHeight - buttonTop) + vPadding;
+      }
     } else {
-        menuOptions.bottom = (UIStore.instance.windowHeight - buttonTop) + vPadding;
+      menuOptions.bottom = 20
     }
 
     return menuOptions;

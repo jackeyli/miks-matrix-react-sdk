@@ -192,7 +192,6 @@ export default class AccessSecretStorageDialog extends React.PureComponent<IProp
         ev.preventDefault();
 
         if (!this.state.recoveryKeyValid) return;
-
         this.setState({ keyMatches: null });
         const input = { recoveryKey: this.state.recoveryKey };
         const keyMatches = await this.props.checkPrivateKey(input);

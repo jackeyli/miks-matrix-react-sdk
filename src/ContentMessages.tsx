@@ -441,7 +441,6 @@ export default class ContentMessages {
             dis.dispatch({ action: 'require_registration' });
             return;
         }
-
         const isQuoting = Boolean(RoomViewStore.getQuotingEvent());
         if (isQuoting) {
             // FIXME: Using an import will result in Element crashing

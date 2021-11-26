@@ -94,15 +94,15 @@ export default class RoomSettingsDialog extends React.Component<IProps, IState> 
             "mx_RoomSettingsDialog_settingsIcon",
             <GeneralRoomSettingsTab roomId={this.props.roomId} />,
         ));
-        tabs.push(new Tab(
-            ROOM_SECURITY_TAB,
-            _td("Security & Privacy"),
-            "mx_RoomSettingsDialog_securityIcon",
-            <SecurityRoomSettingsTab
-                roomId={this.props.roomId}
-                closeSettingsFn={() => this.props.onFinished(true)}
-            />,
-        ));
+      //   tabs.push(new Tab(
+      //       ROOM_SECURITY_TAB,
+      //       _td("Security & Privacy"),
+      //       "mx_RoomSettingsDialog_securityIcon",
+      //       <SecurityRoomSettingsTab
+      //           roomId={this.props.roomId}
+      //           closeSettingsFn={() => this.props.onFinished(true)}
+      //       />,
+      //   ));
         tabs.push(new Tab(
             ROOM_ROLES_TAB,
             _td("Roles & Permissions"),
@@ -126,15 +126,15 @@ export default class RoomSettingsDialog extends React.Component<IProps, IState> 
         }
 
         if (SettingsStore.getValue(UIFeature.AdvancedSettings)) {
-            tabs.push(new Tab(
-                ROOM_ADVANCED_TAB,
-                _td("Advanced"),
-                "mx_RoomSettingsDialog_warningIcon",
-                <AdvancedRoomSettingsTab
-                    roomId={this.props.roomId}
-                    closeSettingsFn={() => this.props.onFinished(true)}
-                />,
-            ));
+            // tabs.push(new Tab(
+            //     ROOM_ADVANCED_TAB,
+            //     _td("Advanced"),
+            //     "mx_RoomSettingsDialog_warningIcon",
+            //     <AdvancedRoomSettingsTab
+            //         roomId={this.props.roomId}
+            //         closeSettingsFn={() => this.props.onFinished(true)}
+            //     />,
+            // ));
         }
 
         return tabs;

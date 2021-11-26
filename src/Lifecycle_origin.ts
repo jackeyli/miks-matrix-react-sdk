@@ -55,7 +55,7 @@ import ErrorDialog from "./components/views/dialogs/ErrorDialog";
 import { _t } from "./languageHandler";
 import LazyLoadingResyncDialog from "./components/views/dialogs/LazyLoadingResyncDialog";
 import LazyLoadingDisabledDialog from "./components/views/dialogs/LazyLoadingDisabledDialog";
-// import SessionRestoreErrorDialog from "./components/views/dialogs/SessionRestoreErrorDialog";
+import SessionRestoreErrorDialog from "./components/views/dialogs/SessionRestoreErrorDialog";
 import StorageEvictedDialog from "./components/views/dialogs/StorageEvictedDialog";
 
 import { logger } from "matrix-js-sdk/src/logger";
@@ -109,6 +109,7 @@ export async function loadSession(opts: ILoadSessionOpts = {}): Promise<boolean>
         const guestIsUrl = opts.guestIsUrl;
         const fragmentQueryParams = opts.fragmentQueryParams || {};
         const defaultDeviceDisplayName = opts.defaultDeviceDisplayName;
+
         if (enableGuest && !guestHsUrl) {
             logger.warn("Cannot enable guest access: can't determine HS URL to use");
             enableGuest = false;
@@ -142,11 +143,11 @@ export async function loadSession(opts: ILoadSessionOpts = {}): Promise<boolean>
         // fall back to welcome screen
         return false;
     } catch (e) {
-      //   if (e instanceof AbortLoginAndRebuildStorage) {
-      //       // If we're aborting login because of a storage inconsistency, we don't
-      //       // need to show the general failure dialog. Instead, just go back to welcome.
-      //       return handleLoadSessionFailure(e);
-      //   }
+        if (e instanceof AbortLoginAndRebuildStorage) {
+            // If we're aborting login because of a storage inconsistency, we don't
+            // need to show the general failure dialog. Instead, just go back to welcome.
+            return false;
+        }
         return handleLoadSessionFailure(e);
     }
 }
@@ -183,8 +184,7 @@ export function attemptTokenLogin(
     if (!queryParams.loginToken) {
         return Promise.resolve(false);
     }
-
-    const homeserver = localStorage.getItem(SSO_HOMESERVER_URL_KEY);
+    const homeserver = localStorage.getItem(SSO_HOMESERVER_URL_KEY) || MatrixClientPeg.get().getHomeserverUrl();
     const identityServer = localStorage.getItem(SSO_ID_SERVER_URL_KEY);
     if (!homeserver) {
         logger.warn("Cannot log in with token: can't determine HS URL to use");
@@ -339,6 +339,7 @@ export async function getStoredSessionVars(): Promise<IStoredSession> {
         (localStorage.getItem("mx_has_access_token") === "true") || !!accessToken;
     const userId = localStorage.getItem("mx_user_id");
     const deviceId = localStorage.getItem("mx_device_id");
+
     let isGuest;
     if (localStorage.getItem("mx_is_guest") !== null) {
         isGuest = localStorage.getItem("mx_is_guest") === "true";
@@ -375,9 +376,15 @@ async function pickleKeyToAesKey(pickleKey: string): Promise<Uint8Array> {
 }
 
 async function abortLogin() {
-   throw new AbortLoginAndRebuildStorage(
-      "Aborting login in progress because of storage inconsistency",
-   );
+    const signOut = await showStorageEvictedDialog();
+    if (signOut) {
+        await clearStorage();
+        // This error feels a bit clunky, but we want to make sure we don't go any
+        // further and instead head back to sign in.
+        throw new AbortLoginAndRebuildStorage(
+            "Aborting login in progress because of storage inconsistency",
+        );
+    }
 }
 
 // returns a promise which resolves to true if a session is found in
@@ -445,9 +452,20 @@ export async function restoreFromLocalStorage(opts?: { ignoreGuest?: boolean }):
 
 async function handleLoadSessionFailure(e: Error): Promise<boolean> {
     logger.error("Unable to load session", e);
-    await clearStorage();
+
+    const modal = Modal.createTrackedDialog('Session Restore Error', '', SessionRestoreErrorDialog, {
+        error: e.message,
+    });
+
+    const [success] = await modal.finished;
+    if (success) {
+        // user clicked continue.
+        await clearStorage();
+        return false;
+    }
+
     // try, try again
-    return await loadSession();
+    return loadSession();
 }
 
 /**
@@ -825,24 +843,18 @@ export async function onLoggedOut(): Promise<void> {
  * @param {object} opts Options for how to clear storage.
  * @returns {Promise} promise which resolves once the stores have been cleared
  */
-export async function clearStorage(opts?: { deleteEverything?: boolean }): Promise<void> {
+async function clearStorage(opts?: { deleteEverything?: boolean }): Promise<void> {
     Analytics.disable();
 
     if (window.localStorage) {
         // try to save any 3pid invites from being obliterated
         const pendingInvites = ThreepidInviteStore.instance.getWireInvites();
-        
-        for(let i = 0; i < window.localStorage.length; i ++) {
-           if(/^mx.*$/.test(window.localStorage.key(i))) {
-               window.localStorage.removeItem(window.localStorage.key(i))
-           }
-        }
+
+        window.localStorage.clear();
 
         try {
             await StorageManager.idbDelete("account", "mx_access_token");
-        } catch (e) {
-           console.log(e)
-        }
+        } catch (e) {}
 
         // now restore those invites
         if (!opts?.deleteEverything) {
@@ -853,6 +865,7 @@ export async function clearStorage(opts?: { deleteEverything?: boolean }): Promi
             });
         }
     }
+
     if (window.sessionStorage) {
         window.sessionStorage.clear();
     }
@@ -888,6 +901,7 @@ export function stopMatrixClient(unsetClient = true): void {
     if (cli) {
         cli.stopClient();
         cli.removeAllListeners();
+
         if (unsetClient) {
             MatrixClientPeg.unset();
             EventIndexPeg.unset();

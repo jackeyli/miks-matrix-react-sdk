@@ -179,8 +179,15 @@ export const SETTINGS: {[setting: string]: ISetting} = {
         controller: new ReloadOnChangeController(),
         displayName: _td("Threaded messaging"),
         supportedLevels: LEVELS_FEATURE,
-        default: false,
+        default: true,
     },
+    "feature_miks_embedded": {
+      isFeature: true,
+      // Requires a reload as we change an option flag on the `js-sdk`
+      // And the entire sync history needs to be parsed again
+      supportedLevels: LEVELS_FEATURE,
+      default: false,
+   },
     "feature_custom_status": {
         isFeature: true,
         displayName: _td("Custom user status messages"),

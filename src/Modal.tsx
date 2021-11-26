@@ -23,7 +23,7 @@ import { defer, sleep } from "matrix-js-sdk/src/utils";
 import Analytics from './Analytics';
 import dis from './dispatcher/dispatcher';
 import AsyncWrapper from './AsyncWrapper';
-
+import SettingsStore from './settings/SettingsStore'
 const DIALOG_CONTAINER_ID = "mx_Dialog_Container";
 const STATIC_DIALOG_CONTAINER_ID = "mx_Dialog_StaticContainer";
 
@@ -70,27 +70,61 @@ export class ModalManager {
     private modals: IModal<any>[] = [];
 
     private static getOrCreateContainer() {
-        let container = document.getElementById(DIALOG_CONTAINER_ID);
-
-        if (!container) {
-            container = document.createElement("div");
-            container.id = DIALOG_CONTAINER_ID;
-            document.body.appendChild(container);
-        }
-
+       let embedded = SettingsStore.getValue("feature_miks_embedded");
+       if(!embedded) {
+         let container = document.getElementById(DIALOG_CONTAINER_ID);
+         if (!container) {
+               container = document.createElement("div");
+               container.id = DIALOG_CONTAINER_ID;
+               document.body.appendChild(container);
+         }
         return container;
+       } else {
+         let container = document.getElementById('miks-matrix-content');
+         if (!container) {
+            // container = document.createElement("div");
+            // container.id = STATIC_DIALOG_CONTAINER_ID;
+            // document.body.appendChild(container);
+            return null
+         } else {
+            let modal = container.shadowRoot.getElementById(DIALOG_CONTAINER_ID)
+            if(!modal) {
+               modal = document.createElement("div");
+               modal.id = DIALOG_CONTAINER_ID;
+               container.shadowRoot.appendChild(modal)
+            }
+            return modal;
+         }
+       }
     }
 
     private static getOrCreateStaticContainer() {
-        let container = document.getElementById(STATIC_DIALOG_CONTAINER_ID);
-
-        if (!container) {
-            container = document.createElement("div");
-            container.id = STATIC_DIALOG_CONTAINER_ID;
-            document.body.appendChild(container);
-        }
-
-        return container;
+        let embedded = SettingsStore.getValue("feature_miks_embedded");
+         if(!embedded) {
+            let container = document.getElementById(STATIC_DIALOG_CONTAINER_ID);
+            if (!container) {
+               container = document.createElement("div");
+               container.id = STATIC_DIALOG_CONTAINER_ID;
+               document.body.appendChild(container);
+            }
+            return container;
+         } else {
+            let container = document.getElementById('miks-matrix-content');
+            if (!container) {
+               // container = document.createElement("div");
+               // container.id = STATIC_DIALOG_CONTAINER_ID;
+               // document.body.appendChild(container);
+               return null
+            } else {
+               let modal = container.shadowRoot.getElementById(STATIC_DIALOG_CONTAINER_ID)
+               if(!modal) {
+                  modal = document.createElement("div");
+                  modal.id = STATIC_DIALOG_CONTAINER_ID;
+                  container.shadowRoot.appendChild(modal)
+               }
+               return modal;
+            }
+         }
     }
 
     public toggleCurrentDialogVisibility() {

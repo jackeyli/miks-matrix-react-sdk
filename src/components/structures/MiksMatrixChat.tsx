@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+
 import React, { ComponentType, createRef } from 'react';
 import { createClient } from "matrix-js-sdk/src/matrix";
 import { InvalidStoreError } from "matrix-js-sdk/src/errors";
@@ -108,10 +109,10 @@ import SoftLogout from './auth/SoftLogout';
 import { makeRoomPermalink } from "../../utils/permalinks/Permalinks";
 import { copyPlaintext } from "../../utils/strings";
 import { PosthogAnalytics } from '../../PosthogAnalytics';
-import { initSentry } from "../../sentry";
 
 import { logger } from "matrix-js-sdk/src/logger";
 import { showSpaceInvite } from "../../utils/space";
+import { SetupEncryptionStore } from '../../stores/SetupEncryptionStore';
 
 /** constants for MatrixChat.state.view */
 export enum Views {
@@ -244,10 +245,12 @@ interface IState {
     forceTimeline?: boolean; // see props
 }
 
-@replaceableComponent("structures.MatrixChat")
+@replaceableComponent("structures.MiksMatrixChat")
 export default class MatrixChat extends React.PureComponent<IProps, IState> {
-    static displayName = "MatrixChat";
+    static displayName = "MiksMatrixChat";
 
+    static replaces = 'MiksMatrixChat';
+    
     static defaultProps = {
         realQueryParams: {},
         startingFragmentQueryParams: {},
@@ -297,7 +300,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         if (this.props.config.sync_timeline_limit) {
             MatrixClientPeg.opts.initialSyncLimit = this.props.config.sync_timeline_limit;
         }
-
+        SettingsStore.setValue("feature_miks_embedded",null,SettingLevel.DEVICE,true)
         // a thing to call showScreen with once login completes.  this is kept
         // outside this.state because updating it should never trigger a
         // rerender.
@@ -313,7 +316,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
 
         this.prevWindowWidth = UIStore.instance.windowWidth || 1000;
         UIStore.instance.on(UI_EVENTS.Resize, this.handleResize);
-
+        UIStore.instance.on('MIKS_LOGIN',(code)=>this.miksLogin(code));
         this.pageChanging = false;
 
         // For PersistentElement
@@ -356,40 +359,40 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         }
         // the first thing to do is to try the token params in the query-string
         // if the session isn't soft logged out (ie: is a clean session being logged in)
-        if (!Lifecycle.isSoftLogout()) {
-            Lifecycle.attemptTokenLogin(
-                this.props.realQueryParams,
-                this.props.defaultDeviceDisplayName,
-                this.getFragmentAfterLogin(),
-            ).then(async (loggedIn) => {
-                if (this.props.realQueryParams?.loginToken) {
-                    // remove the loginToken from the URL regardless
-                    this.props.onTokenLoginCompleted();
-                }
-                if (loggedIn) {
-                    this.tokenLogin = true;
+      //   if (!Lifecycle.isSoftLogout()) {
+      //       Lifecycle.attemptTokenLogin(
+      //           this.props.realQueryParams,
+      //           this.props.defaultDeviceDisplayName,
+      //           this.getFragmentAfterLogin(),
+      //       ).then(async (loggedIn) => {
+      //           if (this.props.realQueryParams?.loginToken) {
+      //               // remove the loginToken from the URL regardless
+      //               this.props.onTokenLoginCompleted();
+      //           }
+      //           if (loggedIn) {
+      //               this.tokenLogin = true;
 
-                    // Create and start the client
-                    await Lifecycle.restoreFromLocalStorage({
-                        ignoreGuest: true,
-                    });
-                    return this.postLoginSetup();
-                }
+      //               // Create and start the client
+      //               await Lifecycle.restoreFromLocalStorage({
+      //                   ignoreGuest: true,
+      //               });
+      //               return this.postLoginSetup();
+      //           }
 
-                // if the user has followed a login or register link, don't reanimate
-                // the old creds, but rather go straight to the relevant page
-                const firstScreen = this.screenAfterLogin ? this.screenAfterLogin.screen : null;
+      //           // if the user has followed a login or register link, don't reanimate
+      //           // the old creds, but rather go straight to the relevant page
+      //           const firstScreen = this.screenAfterLogin ? this.screenAfterLogin.screen : null;
 
-                if (firstScreen === 'login' ||
-                    firstScreen === 'register' ||
-                    firstScreen === 'forgot_password') {
-                    this.showScreenAfterLogin();
-                    return;
-                }
+      //           if (firstScreen === 'login' ||
+      //               firstScreen === 'register' ||
+      //               firstScreen === 'forgot_password') {
+      //               this.showScreenAfterLogin();
+      //               return;
+      //           }
 
-                return this.loadSession();
-            });
-        }
+      //           return this.loadSession();
+      //       });
+      //   }
 
         if (SettingsStore.getValue("analyticsOptIn")) {
             Analytics.enable();
@@ -399,17 +402,48 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         PosthogAnalytics.instance.updatePlatformSuperProperties();
 
         CountlyAnalytics.instance.enable(/* anonymous = */ true);
+        (
+           async ()=>{
+             let { hsUrl, isUrl, hasAccessToken, accessToken, userId, deviceId, isGuest } = await Lifecycle.getStoredSessionVars();
+             if (accessToken && userId && hsUrl) {
+                  await this.loadSession();
+                  if(!localStorage.getItem("mx_miks_masterkey")) {
+                     await this.postLoginSetup();
+                  }
+             } else {
+                UIStore.instance.emit('MATRIX_READY')
+             }
+           }
+        )()
 
-        initSentry(SdkConfig.get()["sentry"]);
+         UIStore.instance.on('MATRIX_CROSSSIGN_START',(async () => {
+               const store = SetupEncryptionStore.sharedInstance();
+               await store.usePassPhrase()
+               await store.done();
+               this.onLoggedIn();
+               this.setState({ pendingInitialSync: false });
+               UIStore.instance.emit('MATRIX_READY_FOR_OPEN')
+         }))
+         UIStore.instance.on('MATRIX_PASS_SET_SKIP',()=>{
+            this.onLoggedIn();
+            this.setState({ pendingInitialSync: false });
+            UIStore.instance.emit('MATRIX_READY_FOR_OPEN')
+         })
+        UIStore.instance.on('MIKS_VIEW_ROOM',(roomId)=>{
+            dis.dispatch({
+               action: 'view_room',
+               room_id: roomId,
+         });
+        })
+      //   initSentry(SdkConfig.get()["sentry"]);
     }
-
     private async postLoginSetup() {
+         
         const cli = MatrixClientPeg.get();
         const cryptoEnabled = cli.isCryptoEnabled();
-        if (!cryptoEnabled) {
+        if (!cryptoEnabled || localStorage.getItem('mx_skip_input_secret') === "1") {
             this.onLoggedIn();
         }
-
         const promisesList: Promise<any>[] = [this.firstSyncPromise.promise];
         if (cryptoEnabled) {
             // wait for the client to finish downloading cross-signing keys for us so we
@@ -425,22 +459,20 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
 
         if (!cryptoEnabled) {
             this.setState({ pendingInitialSync: false });
+            UIStore.instance.emit('MATRIX_LOGIN_DONE');
             return;
         }
-
         const crossSigningIsSetUp = cli.getStoredCrossSigningForUser(cli.getUserId());
-        if (crossSigningIsSetUp) {
-            if (SecurityCustomisations.SHOW_ENCRYPTION_SETUP_UI === false) {
-                this.onLoggedIn();
-            } else {
-                this.setStateForNewView({ view: Views.COMPLETE_SECURITY });
-            }
+        if(localStorage.getItem('mx_skip_input_secret') === "1") {
+
+        } else if (crossSigningIsSetUp) {
+            this.onLoggedIn();
         } else if (await cli.doesServerSupportUnstableFeature("org.matrix.e2e_cross_signing")) {
             this.setStateForNewView({ view: Views.E2E_SETUP });
         } else {
             this.onLoggedIn();
         }
-        this.setState({ pendingInitialSync: false });
+        UIStore.instance.emit('MATRIX_LOGIN_DONE');
     }
 
     // TODO: [REACT-WARNING] Replace with appropriate lifecycle stage
@@ -450,7 +482,42 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             this.startPageChangeTimer();
         }
     }
+    miksLogin(loginToken:string){
+      if (!Lifecycle.isSoftLogout()) {
+         Lifecycle.attemptTokenLogin(
+             {loginToken:loginToken},
+             window.location.host,
+             this.getFragmentAfterLogin(),
+         ).then(async (loggedIn) => {
+             if (this.props.realQueryParams?.loginToken) {
+                 // remove the loginToken from the URL regardless
+                 this.props.onTokenLoginCompleted();
+             }
+             if (loggedIn) {
+                 this.tokenLogin = true;
+                 
+                 // Create and start the client
+                 await Lifecycle.restoreFromLocalStorage({
+                     ignoreGuest: true,
+                 });
+                 return this.postLoginSetup();
+             }
 
+             // if the user has followed a login or register link, don't reanimate
+             // the old creds, but rather go straight to the relevant page
+             const firstScreen = this.screenAfterLogin ? this.screenAfterLogin.screen : null;
+
+               if (firstScreen === 'login' ||
+                  firstScreen === 'register' ||
+                  firstScreen === 'forgot_password') {
+                  this.showScreenAfterLogin();
+                  return;
+               }
+
+             return this.loadSession();
+            });
+      }
+    }
     componentDidUpdate(prevProps, prevState) {
         if (this.shouldTrackPageChange(prevState, this.state)) {
             const durationMs = this.stopPageChangeTimer();
@@ -2021,11 +2088,10 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
     render() {
         const fragmentAfterLogin = this.getFragmentAfterLogin();
         let view = null;
-
         if (this.state.view === Views.LOADING) {
             view = (
                 <div className="mx_MatrixChat_splash">
-                    <Spinner />
+                    <Spinner/>
                 </div>
             );
         } else if (this.state.view === Views.COMPLETE_SECURITY) {

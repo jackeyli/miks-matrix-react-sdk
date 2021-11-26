@@ -180,7 +180,7 @@ export default class SoftLogout extends React.Component<IProps, IState> {
 
     async trySsoLogin() {
         this.setState({ busy: true });
-
+        
         const hsUrl = localStorage.getItem(SSO_HOMESERVER_URL_KEY);
         const isUrl = localStorage.getItem(SSO_ID_SERVER_URL_KEY) || MatrixClientPeg.get().getIdentityServerUrl();
         const loginType = "m.login.token";

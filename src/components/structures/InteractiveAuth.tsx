@@ -108,7 +108,6 @@ export default class InteractiveAuthComponent extends React.Component<IProps, IS
             errorCode: null,
             submitButtonEnabled: false,
         };
-
         this.authLogic = new InteractiveAuth({
             authData: this.props.authData,
             doRequest: this.requestCallback,

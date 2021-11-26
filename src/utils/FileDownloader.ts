@@ -44,7 +44,7 @@ function getManagedIframe(): { iframe: HTMLIFrameElement, onLoadPromise: Promise
     // Dev note: the reassignment warnings are entirely incorrect here.
 
     managedIframe.style.display = "none";
-
+   //  managedIframe.setAttribute('allow',`downloads-without-user-activation ${window.location.protocol}//${window.location.host}`)
     // @ts-ignore
     // noinspection JSConstantReassignment
     managedIframe.sandbox = "allow-scripts allow-downloads allow-downloads-without-user-activation";
@@ -92,11 +92,19 @@ export class FileDownloader {
     public async download({ blob, name, autoDownload = true, opts = DEFAULT_STYLES }: DownloadOptions) {
         const iframe = this.iframe; // get the iframe first just in case we need to await onload
         if (this.onLoadPromise) await this.onLoadPromise;
-        iframe.contentWindow.postMessage({
-            ...opts,
-            blob: blob,
-            download: name,
-            auto: autoDownload,
-        }, '*');
+        if(blob instanceof Promise) {
+           blob = await blob;
+        }
+        let link = document.createElement('a'),
+            urlBlob = URL.createObjectURL(blob);
+        link.href = urlBlob
+        link.download = name
+        link.click() 
+      //   iframe.contentWindow.postMessage({
+      //       ...opts,
+      //       blob: blob,
+      //       download: name,
+      //       auto: autoDownload,
+      //   }, '*');
     }
 }

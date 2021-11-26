@@ -658,7 +658,6 @@ class LoggedInView extends React.Component<IProps, IState> {
                 <AudioFeedArrayForCall call={call} key={call.callId} />
             );
         });
-
         return (
             <MatrixClientContext.Provider value={this._matrixClient}>
                 <div

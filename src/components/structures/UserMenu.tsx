@@ -426,6 +426,7 @@ export default class UserMenu extends React.Component<IProps, IState> {
                 </span>
             </div>
         );
+        let miks_matrix = localStorage.getItem('miks_matrix')
         let primaryOptionList = (
             <React.Fragment>
                 <IconizedContextMenuOptionList>
@@ -435,30 +436,30 @@ export default class UserMenu extends React.Component<IProps, IState> {
                         label={_t("Notification settings")}
                         onClick={(e) => this.onSettingsOpen(e, UserTab.Notifications)}
                     />
-                    <IconizedContextMenuOption
+                    {miks_matrix == "1" ? null :<IconizedContextMenuOption
                         iconClassName="mx_UserMenu_iconLock"
                         label={_t("Security & privacy")}
                         onClick={(e) => this.onSettingsOpen(e, UserTab.Security)}
-                    />
-                    <IconizedContextMenuOption
+                    />}
+                    { miks_matrix == "1" ? null :<IconizedContextMenuOption
                         iconClassName="mx_UserMenu_iconSettings"
                         label={_t("All settings")}
                         onClick={(e) => this.onSettingsOpen(e, null)}
-                    />
-                    { /* <IconizedContextMenuOption
+                    /> }
+                    {  miks_matrix == "1" ? null :<IconizedContextMenuOption
                         iconClassName="mx_UserMenu_iconArchive"
                         label={_t("Archived rooms")}
                         onClick={this.onShowArchived}
-                    /> */ }
+                    /> }
                     { feedbackButton }
                 </IconizedContextMenuOptionList>
-                <IconizedContextMenuOptionList red>
+                { miks_matrix == "1" ? null :<IconizedContextMenuOptionList red>
                     <IconizedContextMenuOption
                         iconClassName="mx_UserMenu_iconSignOut"
                         label={_t("Sign out")}
                         onClick={this.onSignOutClick}
                     />
-                </IconizedContextMenuOptionList>
+                </IconizedContextMenuOptionList> }
             </React.Fragment>
         );
         let secondarySection = null;

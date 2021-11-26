@@ -136,12 +136,12 @@ export default class UserSettingsDialog extends React.Component<IProps, IState> 
         if (SdkConfig.get()['showLabsSettings']
             || SettingsStore.getFeatureSettingNames().some(k => SettingsStore.getBetaInfo(k))
         ) {
-            tabs.push(new Tab(
-                UserTab.Labs,
-                _td("Labs"),
-                "mx_UserSettingsDialog_labsIcon",
-                <LabsUserSettingsTab />,
-            ));
+            // tabs.push(new Tab(
+            //     UserTab.Labs,
+            //     _td("Labs"),
+            //     "mx_UserSettingsDialog_labsIcon",
+            //     <LabsUserSettingsTab />,
+            // ));
         }
         if (this.state.mjolnirEnabled) {
             tabs.push(new Tab(
